@@ -3,7 +3,9 @@
 # Author: Luis Lopez-Echeto
 # Version: 0.1
 import getpass
+import re
 import requests
+from bs4 import BeautifulSoup
 from imap_tools import MailBox
 
 
@@ -17,12 +19,19 @@ default_providers = [
      }
     ]
 
+unsubscribe_words = ['unsubscribe','subscription','optout']
+
 class UnsubscribeMe:
-    credentials = {'user': None, 'password': None}
-    imap_server = default_providers[0]['server']
-    imap_port = default_providers[0]['port']
-    mail_box = None
-    logged_in = False
+    
+    def __init__(self):
+        self.credentials = {'user': None, 'password': None}
+        self.imap_server = default_providers[0]['server']
+        self.imap_port = default_providers[0]['port']
+        self.mail_box = None
+        self.logged_in = False
+        self.words_to_check = []
+        for i in range(len(unsubscribe_words)):
+            self.words_to_check.append(re.compile(unsubscribe_words[i], re.I))
     
     def get_server(self):
         '''Asks user to select provider from preselected list of providers available.'''
@@ -46,14 +55,28 @@ class UnsubscribeMe:
     def get_credentials(self):
         '''Get credentials for IMAP server.'''
         self.credentials['user'] = input('User: ')
-        self.credentials['password'] =getpass.getpass('Password: ')
+        if debug:
+            self.credentials['password'] = input('Password: ')
+        else:
+            self.credentials['password'] = getpass.getpass('Password: ')
         
     def get_emails(self):
         '''Search for email messages in selected folder that have the unsubscribe word in their body.'''
         messages = self.mail_box.fetch('TEXT "unsubscribe"')
         
         for message in messages:
-            print(message.from_, ': ', message.subject)
+            body_html = message.html
+            soup = BeautifulSoup(body_html, 'html.parser')
+            elements = soup.select('a')
+            # For each anchor tag search for possible unsubscribe words on text
+            for element in elements:
+                for j in range(len(self.words_to_check)):
+                    found = self.words_to_check[j].search(element.text)
+                    if found != None:
+                        print('Found link')
+                        url = element.get('href')
+                        print(url)
+                    
 
     def get_access(self):
         '''Subroutine to get access to the mail server by asking server choice and credentials from user first.'''
