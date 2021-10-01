@@ -34,6 +34,7 @@ class UnsubscribeMe:
             self.words_to_check.append(re.compile(unsubscribe_words[i], re.I))
         self.senders = []
         self.open_links = False
+        self.del_emails = False
     
     def get_server(self):
         '''Asks user to select provider from preselected list of providers available.'''
@@ -83,14 +84,14 @@ class UnsubscribeMe:
                 if unsub_url != None:
                     break
             if unsub_url != False:
-                self.senders.append([message.from_, unsub_url, False, False])
+                self.senders.append([message.uid, message.from_, unsub_url, False, False])
         print()
     
     def display_list_of_senders(self):
         if self.senders != []:
             print('Found the following senders with unsubscribe links:')
             for sender in self.senders:
-                print(sender[0], end=' | ')
+                print(sender[1], end=' | ')
             print()
     
     def select_links(self):
@@ -98,13 +99,20 @@ class UnsubscribeMe:
         self.display_list_of_senders()
         for sender_idx, sender in enumerate(self.senders):
             while True:
-                open_choice = input('Open link from {} (Y/N): [Y] '.format(sender[0])).lower()
+                open_choice = input('Open link from {} (Y/N): [Y] '.format(sender[1])).lower()
                 if open_choice == 'y' or open_choice == '':
-                    self.senders[sender_idx][2] = True
+                    self.senders[sender_idx][3] = True
                     self.open_links = True
                     break
                 else:
-                    sender[2] = False
+                    break
+            while True:
+                del_choice = input('Delete email from {} (Y/N): [N] '.format(sender[1])).lower()
+                if del_choice == 'y':
+                    self.senders[sender_idx][4] = True
+                    self.del_emails = True
+                    break
+                else:
                     break
     
     def open_selected_links(self):
@@ -114,13 +122,24 @@ class UnsubscribeMe:
         else:
             counter = 0
             for i in range(len(self.senders)):
-                if self.senders[i][2] == True:
-                    webbrowser.open(self.senders[i][1])
+                if self.senders[i][3] == True:
+                    webbrowser.open(self.senders[i][2])
                     counter += 1
                     if counter == 10 or i == len(self.senders) - 1:
                         print('Navigating to links.')
                         input('Press enter to continue.')
                         counter = 0
+    
+    def delete_emails(self):
+        if self.del_emails != True:
+            print('No emails selected for deletion.')
+        else:
+            print('Deleting emails.')
+            to_be_deleted = []
+            for i in range(len(self.senders)):
+                if self.senders[i][4] == True:
+                    to_be_deleted.append(self.senders[i][0])
+                self.mail_box.delete(to_be_deleted)
         
     def get_access(self):
         '''Subroutine to get access to the mail server by asking server choice and credentials from user first.'''
@@ -136,6 +155,8 @@ class UnsubscribeMe:
             if self.senders != []:
                 self.select_links()
                 self.open_selected_links()
+                self.delete_emails()
+            self.logout()
 
 if __name__ == '__main__':
     app = UnsubscribeMe()
